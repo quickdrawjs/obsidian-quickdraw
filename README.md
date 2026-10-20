@@ -1,3 +1,5 @@
+<p align="center"><img src="./images/quickdraw-logo.png" width="96" height="96" alt="Quickdraw"></p>
+
 # Quickdraw for Obsidian
 
 Draw in your notes. **Insert drawing** opens a big sheet with the [Quickdraw](https://github.com/quickdrawjs/quickdraw) board: an infinite canvas with pen, highlighter, shapes, arrows, text, sticky notes and a laser. What you draw lands in the note where your cursor was, and keeps saving as you go.
