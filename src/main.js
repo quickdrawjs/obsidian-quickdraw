@@ -6,7 +6,7 @@
 // `<id>.drawing-dark.png` and `<id>.drawing.json`, in the folder the settings name (the vault's attachment folder
 // unless they name another). The note embeds the picture, so any Markdown reader shows it; here the dark one shows in the dark
 // theme, at its size (it's drawn at twice), and a double click on it opens it to draw on.
-const { Plugin, PluginSettingTab, Setting, MarkdownView, TFile, Notice, Platform, FileSystemAdapter, normalizePath, setIcon } = require('obsidian')
+const { Plugin, PluginSettingTab, Setting, MarkdownView, TFile, Notice, Platform, FileSystemAdapter, normalizePath, setIcon, addIcon } = require('obsidian')
 // the browser build: it draws the code on a canvas, with no file system
 const QRCode = require('qrcode/lib/browser')
 const { createIpadBridge } = require('./ipad')
@@ -32,8 +32,15 @@ const bytes = (base64) => {
   return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)
 }
 
+/** Quickdraw's mark, as on its site and in the board's corner: the stroke in the text colour, the dot in its blue. Drawn
+ *  on a 32 grid, fitted to the 100 one Obsidian's icons use. */
+const MARK = '<g transform="translate(-12.1 -7.8) scale(3.6)">' +
+  '<path d="M7 21 C7 12, 13 6.5, 20 7.5 C26.5 8.5, 27.5 16, 22 18.8 C17.5 21, 13 19.5, 14 15" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>' +
+  '<circle cx="24.5" cy="24.5" r="2.6" fill="#2f6fed"/></g>'
+
 module.exports = class QuickdrawPlugin extends Plugin {
   async onload() {
+    addIcon('quickdraw', MARK)
     this.settings = Object.assign({ folder: '', hostId: '' }, await this.loadData())
     this.addSettingTab(new QuickdrawSettings(this))
     const adapter = this.app.vault.adapter
@@ -53,7 +60,7 @@ module.exports = class QuickdrawPlugin extends Plugin {
     this.addCommand({
       id: 'insert-drawing',
       name: 'Insert drawing',
-      icon: 'signature',
+      icon: 'quickdraw',
       editorCallback: (editor, ctx) => this.newDrawing(editor, ctx),
     })
     this.addCommand({
@@ -67,7 +74,7 @@ module.exports = class QuickdrawPlugin extends Plugin {
         return true
       },
     })
-    this.addRibbonIcon('signature', 'Insert drawing', () => {
+    this.addRibbonIcon('quickdraw', 'Insert drawing', () => {
       const view = this.app.workspace.getActiveViewOfType(MarkdownView)
       if (!view || !view.file) return new Notice('Open a note to draw in.')
       this.newDrawing(view.editor, view)
@@ -75,7 +82,7 @@ module.exports = class QuickdrawPlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor, ctx) => {
         if (!ctx.file) return
-        menu.addItem((i) => i.setTitle('Insert drawing').setIcon('signature').onClick(() => this.newDrawing(editor, ctx)))
+        menu.addItem((i) => i.setTitle('Insert drawing').setIcon('quickdraw').onClick(() => this.newDrawing(editor, ctx)))
         const base = this.drawingOnLine(editor, ctx.file)
         if (base) menu.addItem((i) => i.setTitle('Draw on drawing').setIcon('pencil').onClick(() => this.openDrawing({ base, notePath: ctx.file.path, editor: null, insertAt: null })))
       }),
@@ -365,7 +372,7 @@ class DrawingSheet {
     sheet.addEventListener('mousedown', (e) => e.stopPropagation())
     const head = el('header', 'qd-head')
     head.append(
-      icon('qd-glyph', 'signature'),
+      icon('qd-glyph', 'quickdraw'),
       el('h3', null, this.request.insertAt == null ? 'Drawing' : 'New drawing'),
       el('span', 'qd-in', 'in the note'),
       el('span', 'spacer'),

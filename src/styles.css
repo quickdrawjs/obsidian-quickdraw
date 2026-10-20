@@ -52,8 +52,8 @@
   border-bottom: 1px solid var(--l-hair);
 }
 .qd-head .spacer, .qd-veil .spacer { flex: 1; }
-.qd-glyph { display: flex; color: var(--l-accent-text); }
-.qd-glyph svg { width: 15px; height: 15px; }
+.qd-glyph { display: flex; color: var(--l-t1); }
+.qd-glyph svg { width: 18px; height: 18px; }
 .qd-head h3 { margin: 0; font: 500 19px var(--l-serif); color: var(--l-t1); }
 .qd-in { font-size: 12.5px; color: var(--l-t3); white-space: nowrap; }
 .qd-veil .qd-gold {
