@@ -2,15 +2,14 @@
 // the Quickdraw engine the Mac's board runs, and relays messages between the iPad and the drawing open in Obsidian
 // over a WebSocket. The Mac's drawing stays the one that's kept; the iPad is a second pen on it.
 //
-// The iPad opens it by name, `http://obsidian.local/<key>/`: the Mac announces the name on the network with
-// Bonjour while it shares, on port 80 when that's free. Where the name can't be had, it's the Mac's address.
+// The code holds the computer's address, which always works. For typing, there's a name too, `obsidian.local`, which
+// the plugin answers for itself with multicast DNS while it shares (src/mdns.js); on port 80 when that's free.
 //
 // Every address carries the session's random key, so only someone who scanned the code can load the page or join.
 // The server listens only while a drawing is being shared, and stops with it.
 
 const http = require('node:http')
-const os = require('node:os')
-const { spawn } = require('node:child_process')
+const { lanAddress, claimName } = require('./mdns')
 const { WebSocketServer } = require('ws')
 
 /** port 80 first, for an address with no port in it; then ports of its own */
@@ -24,18 +23,6 @@ const randomKey = (n) => Array.from({ length: n }, () => LETTERS[Math.floor(Math
 
 const TYPES = { js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', woff2: 'font/woff2', html: 'text/html; charset=utf-8', txt: 'text/plain; charset=utf-8' }
 
-/** the Mac's address on the local network: Wi-Fi or Ethernet first, never a link-local one */
-function lanAddress() {
-  const found = []
-  for (const [name, list] of Object.entries(os.networkInterfaces())) {
-    for (const a of list || []) {
-      if (a.family !== 'IPv4' || a.internal || a.address.startsWith('169.254.')) continue
-      found.push({ name, address: a.address })
-    }
-  }
-  return (found.find((f) => f.name === 'en0') || found.find((f) => f.name.startsWith('en')) || found[0])?.address || null
-}
-
 /** `files`: the iPad's page and the engine, by path ('ipad.html', 'qd/index.js', …), as Buffers; `hostId`: this
  *  computer's own short id, made once and kept, as get/set */
 function createIpadBridge({ files, hostId }) {
@@ -46,7 +33,7 @@ function createIpadBridge({ files, hostId }) {
   let onMessage = null
   let onPresence = null
   const sockets = new Set()
-  /** the name on the network, while it's held: { name, ip, proc } */
+  /** the name on the network, while it's held: { name, ip, release } */
   let claimed = null
 
   const devices = () => sockets.size
@@ -62,46 +49,16 @@ function createIpadBridge({ files, hostId }) {
   }
 
   function release() {
-    if (claimed) try { claimed.proc.kill() } catch {}
+    if (claimed) claimed.release()
     claimed = null
-  }
-
-  /** announces `name`.local for `ip` with Bonjour; resolves whether it took */
-  function register(name, ip) {
-    return new Promise((resolve) => {
-      let done = false
-      const finish = (ok) => {
-        if (done) return
-        done = true
-        if (!ok) try { proc.kill() } catch {}
-        resolve(ok)
-      }
-      const proc = spawn('/usr/bin/dns-sd', ['-P', 'Obsidian drawing', '_http._tcp', 'local', String(port), `${name}.local`, ip], { stdio: ['ignore', 'pipe', 'pipe'] })
-      proc.stdout.on('data', (d) => {
-        const s = String(d)
-        if (/registered/i.test(s)) finish(true)
-        if (/conflict|error/i.test(s)) finish(false)
-      })
-      proc.on('error', () => finish(false))
-      proc.on('exit', () => {
-        if (claimed && claimed.proc === proc) claimed = null
-        finish(false)
-      })
-      // Bonjour checks no one else has the name, which takes under a second.
-      setTimeout(() => finish(false), 2500)
-      claimed = { name: `${name}.local`, ip, proc }
-    })
   }
 
   async function claim(ip) {
     if (claimed && claimed.ip === ip) return claimed.name
     release()
     const id = machineID()
-    for (const base of [HOST, `${HOST}-${id}`, `${HOST}-${id}-${10 + Math.floor(Math.random() * 90)}`]) {
-      if (await register(base, ip)) return claimed.name
-      release()
-    }
-    return null
+    claimed = await claimName([HOST, `${HOST}-${id}`, `${HOST}-${id}-${10 + Math.floor(Math.random() * 90)}`], ip)
+    return claimed ? claimed.name : null
   }
 
   function route(p) {
@@ -183,8 +140,8 @@ function createIpadBridge({ files, hostId }) {
 
   /** starts sharing, or goes on with the sharing already started; resolves where the iPad opens it */
   async function start(messages, presence) {
-    const ip = lanAddress()
-    if (!ip) throw new Error("This Mac isn't on a network. Join the same Wi-Fi as your iPad and try again.")
+    const ip = await lanAddress()
+    if (!ip) throw new Error("This computer isn't on a network. Join the same Wi-Fi as your iPad and try again.")
     if (!hasEngine()) throw new Error('The drawing engine for the iPad is missing from this build.')
     if (!server) await listen()
     key = key || randomKey(10)

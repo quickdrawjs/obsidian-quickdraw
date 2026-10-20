@@ -48,7 +48,13 @@ await build({
   target: 'chrome120',
   outfile: path.join(out, 'main.js'),
   external: ['obsidian', 'electron', 'bufferutil', 'utf-8-validate'],
-  define: { BOARD_HTML: JSON.stringify(board), ENGINE_FILES: JSON.stringify(engineFiles()) },
+  define: {
+    BOARD_HTML: JSON.stringify(board),
+    ENGINE_FILES: JSON.stringify(engineFiles()),
+    // ws's optional native speedups, off: it reads no environment, and needs no native modules
+    'process.env.WS_NO_BUFFER_UTIL': '"1"',
+    'process.env.WS_NO_UTF_8_VALIDATE': '"1"',
+  },
   logLevel: 'warning',
 })
 fs.copyFileSync(path.join(root, 'src/styles.css'), path.join(out, 'styles.css'))

@@ -550,7 +550,8 @@ class DrawingSheet {
       if (this.ipad.state !== 'starting') return
       this.ipad = { state: 'sharing', url: a.url, direct: a.direct, devices: this.ipad.devices ?? 0 }
       this.code = null
-      QRCode.toDataURL(a.url, { errorCorrectionLevel: 'M', margin: 0, width: 432, color: { dark: '#000000', light: '#ffffff' } }).then(
+      // The code holds the address itself, which always opens; the name is there for typing.
+      QRCode.toDataURL(a.direct, { errorCorrectionLevel: 'M', margin: 0, width: 432, color: { dark: '#000000', light: '#ffffff' } }).then(
         (code) => { this.code = code; this.renderIpad() },
         () => {},
       )
@@ -622,7 +623,7 @@ class DrawingSheet {
       const addr = el('div', 'qd-addr')
       addr.title = 'Or type this address into Safari'
       addr.append(el('div', 'a', shown(ipad.url)))
-      if (ipad.direct !== ipad.url) addr.append(el('div', 'b', `If it doesn’t open, try ${shown(ipad.direct)}`))
+      if (ipad.direct !== ipad.url) addr.append(el('div', 'b', `or ${shown(ipad.direct)}`))
       const row = el('div', 'qd-row')
       if (ipad.devices > 0) row.append(el('span', 'qd-again', 'Scan again to add another iPad.'))
       row.append(el('span', 'spacer'), tiny('Stop Sharing', () => this.stopIpad()))
