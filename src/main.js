@@ -7,7 +7,8 @@
 // unless they name another). The note embeds the picture, so any Markdown reader shows it; here the dark one shows in the dark
 // theme, at its size (it's drawn at twice), and a double click on it opens it to draw on.
 const { Plugin, PluginSettingTab, Setting, MarkdownView, TFile, Notice, Platform, FileSystemAdapter, normalizePath, setIcon } = require('obsidian')
-const QRCode = require('qrcode')
+// the browser build: it draws the code on a canvas, with no file system
+const QRCode = require('qrcode/lib/browser')
 const { createIpadBridge } = require('./ipad')
 
 const DRAWING = '.drawing.png'
@@ -97,10 +98,20 @@ module.exports = class QuickdrawPlugin extends Plugin {
     this.registerEvent(this.app.vault.on('create', scanSoon))
     this.registerEvent(this.app.vault.on('delete', scanSoon))
 
-    // A double click on one opens it to draw on.
-    this.registerDomEvent(document, 'dblclick', (e) => {
+    // A double click on one opens it to draw on. Its clicks are the drawing's: Obsidian's image viewer doesn't open
+    // over it, and its own double click on an image doesn't go through either.
+    const drawingAt = (e) => {
       const img = e.target instanceof HTMLElement && e.target.closest('img[data-qd-base]')
-      if (!img || img.closest('.qd-veil')) return
+      return img && !img.closest('.qd-veil') ? img : null
+    }
+    this.registerDomEvent(document, 'click', (e) => {
+      if (!drawingAt(e)) return
+      e.preventDefault()
+      e.stopPropagation()
+    }, true)
+    this.registerDomEvent(document, 'dblclick', (e) => {
+      const img = drawingAt(e)
+      if (!img) return
       e.preventDefault()
       e.stopPropagation()
       this.openFromEmbed(img)

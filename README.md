@@ -2,7 +2,17 @@
 
 Draw in your notes. **Insert drawing** opens a big sheet with the [Quickdraw](https://github.com/quickdrawjs/quickdraw) board: an infinite canvas with pen, highlighter, shapes, arrows, text, sticky notes and a laser. What you draw lands in the note where your cursor was, and keeps saving as you go.
 
+![Insert a drawing from the command palette, draw a diagram, and it lands in the note](./images/insert-a-drawing.webp)
+
 **Draw on iPad** puts a code on screen. Scan it with your iPad's camera and the same drawing opens in Safari, ready for Apple Pencil. Strokes show up on your computer as you draw, and undo works from either side. There's no app to install on the iPad.
+
+![Draw on iPad: scan the code, and strokes drawn with the iPad land on the Mac](./images/draw-on-ipad.webp)
+
+Sticky notes, highlighter, shapes, arrows, text and a laser pointer, in light and dark:
+
+![Sticky notes, highlighter, arrows and the laser, from the ribbon](./images/every-tool.webp)
+
+![The same drawing following Obsidian's light and dark themes](./images/light-and-dark.webp)
 
 ## Using it
 
