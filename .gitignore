@@ -1,0 +1,4 @@
+node_modules/
+dist/
+src/.board-entry.js
+.DS_Store

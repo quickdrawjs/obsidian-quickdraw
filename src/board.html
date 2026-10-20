@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drawing</title>
+<link rel="stylesheet" href="qd/quickdraw.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #fbf9f4; overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
+  html[data-scheme="dark"], html[data-scheme="dark"] body { background: #191713; }
+  #app { position: fixed; inset: 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+// The script's drawing, in Consonance. The drawing sheet loads it here, saves it from here as its strokes and a
+// picture of it for each theme, and, while an iPad is drawing on it, relays between this board and the iPad: every
+// change here goes to the iPad as a diff, and the iPad's strokes come back as this board's own, one undo step per
+// stroke. The iPad has no history of its own; its undo and redo run this board's.
+//
+// It runs in a frame of its own, so its keys (Space to pan, the tools' letters) never reach the recorder; the
+// sheet around it talks to it with messages: { qd: name, body } out, { call, id, args } in.
+import { createQuickdraw, drawShape, pageBounds, themeOf, packDiff, unpackDiff } from './qd/index.js'
+
+const post = (name, body) => window.parent.postMessage({ qd: name, body: body ?? '' }, '*')
+const blobBase64 = (blob) => new Promise((resolve) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(String(reader.result).split(',')[1] || null)
+  reader.onerror = () => resolve(null)
+  reader.readAsDataURL(blob)
+})
+
+const board = createQuickdraw({
+  container: document.getElementById('app'),
+  theme: document.documentElement.dataset.scheme === 'dark' ? 'dark' : 'light',
+  grid: 'dots',
+  watermark: false,
+  // Exports go through the Mac's own save panel.
+  onSave: async (blob) => post('exportImage', await blobBase64(blob)),
+})
+const { editor } = board
+const store = editor.store
+editor.setTool('draw')
+
+// ⌘↩ is the sheet's Done, wherever the focus is.
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault()
+    e.stopPropagation()
+    post('done')
+  }
+}, true)
+
+// The theme follows the app's, and the board's own menu switches it too; the iPad follows either way, and the grid
+// the same.
+function setScheme(theme) {
+  if (editor.theme.id !== theme) editor.setTheme(theme)
+  else showScheme()
+}
+function showScheme() {
+  const theme = editor.theme.id
+  document.documentElement.dataset.scheme = theme
+  toIpad({ type: 'theme', theme })
+}
+editor.on('theme', showScheme)
+editor.on('grid', () => toIpad({ type: 'grid', grid: editor.grid }))
+
+// ---- a picture of it, for the script -------------------------------------------------
+// Transparent, so it sits on the script's page; one for each theme, as the twelve colours resolve per theme.
+async function picture(themeId) {
+  const shapes = editor.shapesSorted()
+  if (!shapes.length) return null
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+  for (const s of shapes) {
+    const b = pageBounds(s)
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y)
+    x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h)
+  }
+  const margin = 16
+  x0 -= margin; y0 -= margin; x1 += margin; y1 += margin
+  const w = x1 - x0, h = y1 - y0
+  if (!(w > 0 && h > 0)) return null
+  // Crisp at 2×, and never past ~16 megapixels however big the drawing is.
+  const k = Math.min(2, Math.sqrt(16e6 / (w * h)))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(w * k))
+  canvas.height = Math.max(1, Math.round(h * k))
+  const ctx = canvas.getContext('2d')
+  ctx.setTransform(k, 0, 0, k, -x0 * k, -y0 * k)
+  await editor._decodeAssets(shapes)
+  const theme = themeOf(themeId)
+  for (const s of shapes) drawShape(ctx, s, { theme, store, zoom: k })
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+  return blob ? blobBase64(blob) : null
+}
+
+// ---- what the sheet calls ------------------------------------------------------------
+let loaded = false
+const api = {
+  load(json, theme) {
+    if (theme) setScheme(theme)
+    if (json) {
+      try { store.loadSnapshot(JSON.parse(json)) } catch (e) { console.error(e) }
+      editor.fitContent({ maxZoom: 1 })
+    }
+    loaded = true
+    window.focus()
+    editor.container.focus()
+  },
+  setTheme: setScheme,
+  async save() {
+    const empty = editor.shapesSorted().length === 0
+    return {
+      snapshot: JSON.stringify(store.getSnapshot()),
+      empty,
+      light: empty ? null : await picture('light'),
+      dark: empty ? null : await picture('dark'),
+    }
+  },
+  fromIpad(json) {
+    let m
+    try { m = JSON.parse(json) } catch { return }
+    try { onIpad(m) } catch (e) { console.error(e) }
+  },
+}
+
+window.addEventListener('message', async (e) => {
+  if (e.source !== window.parent) return
+  const { call, id, args } = e.data || {}
+  if (!call || !api[call]) return
+  let result = null
+  try { result = await api[call](...(args || [])) } catch (err) { console.error(err) }
+  if (id != null) window.parent.postMessage({ reply: id, result }, '*')
+})
+
+// Every change, here or from the iPad, is one for the sheet to save.
+store.listen(() => { if (loaded) post('changed') })
+
+// ---- the iPad ----------------------------------------------------------------------------
+let ipads = 0
+const toIpad = (m) => { if (ipads) post('toIpad', JSON.stringify(m)) }
+const historyMsg = () => ({ canUndo: store.canUndo, canRedo: store.canRedo })
+let lastHistory = ''
+
+function sendInit() {
+  ipads = Math.max(ipads, 1)
+  lastHistory = JSON.stringify(historyMsg())
+  toIpad({ type: 'init', snapshot: store.getSnapshot(), theme: editor.theme.id, grid: editor.grid, history: historyMsg() })
+}
+
+let applying = false
+let batching = false
+let batchTimer
+
+/** A stroke arrives as many small diffs; they make one undo step, closed when the pen lifts. */
+function applyFromIpad(changes, open) {
+  if (open && !batching) {
+    store.beginBatch()
+    batching = true
+  }
+  // The board's own edit, so it's undoable here; flagged, so it isn't sent back.
+  applying = true
+  try { store.applyDiff(unpackDiff(changes, store), 'user') } finally { applying = false }
+  clearTimeout(batchTimer)
+  if (!open) endGesture()
+  // A lost "pen up" mustn't leave the stroke open.
+  else batchTimer = setTimeout(endGesture, 2000)
+}
+
+function endGesture() {
+  clearTimeout(batchTimer)
+  if (!batching) return
+  batching = false
+  store.endBatch()
+}
+
+function onIpad(m) {
+  if (!m) return
+  switch (m.type) {
+    case 'presence':
+      ipads = m.ipads || 0
+      if (!ipads) {
+        endGesture()
+        editor.setRemoteScribbles([])
+      }
+      return
+    case 'join':
+      return sendInit()
+    case 'changes':
+      if (m.changes) applyFromIpad(m.changes, !!m.open)
+      return
+    case 'gestureEnd':
+      return endGesture()
+    case 'theme':
+      return setScheme(m.theme === 'dark' ? 'dark' : 'light')
+    case 'grid':
+      return editor.setGrid(m.grid)
+    case 'undo':
+      endGesture()
+      return store.undo()
+    case 'redo':
+      endGesture()
+      return store.redo()
+    case 'scribbles':
+      return editor.setRemoteScribbles(Array.isArray(m.scribbles) ? m.scribbles : [])
+  }
+}
+
+// Everything but the iPad's own strokes goes back to it.
+store.listen((changes) => {
+  if (applying || !ipads) return
+  toIpad({ type: 'changes', changes: packDiff(changes) })
+})
+store.listenHistory(() => {
+  const h = JSON.stringify(historyMsg())
+  if (h !== lastHistory) { lastHistory = h; toIpad({ type: 'history', ...historyMsg() }) }
+})
+
+post('ready')
+</script>
+</body>
+</html>

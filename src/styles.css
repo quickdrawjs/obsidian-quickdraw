@@ -1,0 +1,130 @@
+/* Quickdraw in Obsidian: the drawing sheet as Consonance has it, in Syncretic's Lumen light (and a dark to match the
+   board's own when Obsidian is dark), and drawings in notes. */
+
+.qd-veil {
+  --l-window: #faf7f2;
+  --l-raised: #ffffff;
+  --l-t1: #1c1814;
+  --l-t2: #554e45;
+  --l-t3: #6f675c;
+  --l-accent: #ebb02e;
+  --l-accent-ink: #1b1403;
+  --l-accent-text: #855600;
+  --l-yes: #129e77;
+  --l-hair: rgba(44, 33, 22, 0.09);
+  --l-hair2: rgba(44, 33, 22, 0.16);
+  --l-control: rgba(44, 33, 22, 0.05);
+  --l-select: rgba(44, 33, 22, 0.075);
+  --l-shadow: rgba(52, 38, 24, 0.13);
+  --l-board: #fbf9f4;
+  --l-serif: ui-serif, 'New York', 'Iowan Old Style', Georgia, serif;
+  --l-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --l-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+.theme-dark .qd-veil {
+  --l-window: #23211d;
+  --l-raised: #2c2a26;
+  --l-t1: #f1ede6;
+  --l-t2: #c4bdb2;
+  --l-t3: #9a9286;
+  --l-accent-text: #ebb02e;
+  --l-yes: #5eddb0;
+  --l-hair: rgba(255, 255, 255, 0.08);
+  --l-hair2: rgba(255, 255, 255, 0.14);
+  --l-control: rgba(255, 255, 255, 0.06);
+  --l-select: rgba(255, 255, 255, 0.1);
+  --l-shadow: rgba(0, 0, 0, 0.4);
+  --l-board: #191713;
+}
+
+.qd-veil {
+  position: fixed; inset: 0; z-index: var(--layer-modal, 50); display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.24); font-family: var(--l-sans); animation: qd-fade 120ms ease;
+}
+.qd-veil button { box-shadow: none; cursor: default; font-family: var(--l-sans); }
+.qd-sheet {
+  display: flex; flex-direction: column; width: min(1120px, calc(100vw - 64px)); height: min(780px, calc(100vh - 64px));
+  min-width: 760px; min-height: 520px; background: var(--l-window); color: var(--l-t1); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--l-hair2), 0 30px 90px rgba(20, 14, 8, 0.3); animation: qd-pop 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.qd-head {
+  flex-shrink: 0; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 14px 0 18px;
+  border-bottom: 1px solid var(--l-hair);
+}
+.qd-head .spacer, .qd-veil .spacer { flex: 1; }
+.qd-glyph { display: flex; color: var(--l-accent-text); }
+.qd-glyph svg { width: 15px; height: 15px; }
+.qd-head h3 { margin: 0; font: 500 19px var(--l-serif); color: var(--l-t1); }
+.qd-in { font-size: 12.5px; color: var(--l-t3); white-space: nowrap; }
+.qd-veil .qd-gold {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 18px; border: none; border-radius: 99px;
+  background: var(--l-accent); color: var(--l-accent-ink); font-size: 13px; font-weight: 600;
+}
+.qd-veil .qd-gold:hover { background: var(--l-accent); }
+.qd-gold:active { opacity: 0.8; }
+.qd-gold:disabled { opacity: 0.45; }
+.qd-gold .k { font-size: 12px; font-weight: 500; opacity: 0.6; }
+.qd-board { position: relative; flex: 1; min-height: 0; background: var(--l-board); }
+.qd-board iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; transition: opacity 180ms ease; }
+.qd-board iframe.ready { opacity: 1; }
+.qd-spin {
+  position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+  border: 2px solid var(--l-hair2); border-top-color: var(--l-t2); animation: qd-spin 0.8s linear infinite; box-sizing: border-box;
+}
+.qd-spin.small { position: static; margin: 0; }
+
+.qd-ipad-wrap { position: relative; }
+.qd-veil .qd-ipad-btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px; border: none; border-radius: 99px;
+  background: var(--l-control); color: var(--l-t2); font-size: 13px; font-weight: 500;
+}
+.qd-veil .qd-ipad-btn:hover, .qd-veil .qd-ipad-btn.on { background: var(--l-select); }
+.qd-ipad-btn.live { color: var(--l-t1); }
+.qd-ipad-btn .qd-tablet { display: flex; transform: rotate(90deg); }
+.qd-ipad-btn .qd-tablet svg { width: 14px; height: 14px; }
+.qd-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--l-t3); flex-shrink: 0; }
+.qd-dot.yes { background: var(--l-yes); }
+.qd-dot.big { width: 8px; height: 8px; margin-top: 5px; }
+.qd-pop {
+  position: absolute; z-index: 5; top: calc(100% + 10px); right: 0; width: 330px; box-sizing: border-box; padding: 16px;
+  display: flex; flex-direction: column; gap: 12px; background: var(--l-raised); border-radius: 12px;
+  border: 1px solid var(--l-hair2); box-shadow: 0 10px 30px var(--l-shadow); user-select: text; animation: qd-fade 120ms ease;
+}
+.qd-pop-title { font-size: 14px; font-weight: 600; color: var(--l-t1); }
+.qd-msg { margin: 0; font-size: 12.5px; color: var(--l-t2); line-height: 1.4; }
+.qd-code { box-sizing: content-box; align-self: flex-start; width: 216px; height: 216px; padding: 10px; background: #fff; border-radius: 12px; box-shadow: 0 0 0 1px var(--l-hair); }
+.qd-code img { width: 216px; height: 216px; display: block; image-rendering: pixelated; }
+.qd-code.wait { display: flex; align-items: center; justify-content: center; background: var(--l-control); box-shadow: none; }
+.qd-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.qd-steps li { display: flex; gap: 7px; font-size: 12px; color: var(--l-t2); line-height: 1.35; margin: 0; }
+.qd-steps b { font: 500 11px var(--l-mono); color: var(--l-accent-text); padding-top: 1px; }
+.qd-live { display: flex; align-items: flex-start; gap: 10px; }
+.qd-live-t { font-size: 13px; font-weight: 500; color: var(--l-t1); }
+.qd-live-d { margin-top: 3px; font-size: 12px; color: var(--l-t3); line-height: 1.35; }
+.qd-addr { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.qd-addr .a { font: 500 11.5px var(--l-mono); color: var(--l-t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qd-addr .b { font-size: 11px; color: var(--l-t3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qd-row { display: flex; align-items: center; gap: 8px; }
+.qd-again { font-size: 11.5px; color: var(--l-t3); }
+.qd-veil .qd-tiny {
+  height: 26px; padding: 0 11px; border: none; border-radius: 99px; background: var(--l-control); color: var(--l-t1);
+  font-size: 12px; font-weight: 500;
+}
+.qd-veil .qd-tiny:hover { background: var(--l-select); }
+
+@keyframes qd-spin { to { transform: rotate(360deg); } }
+@keyframes qd-fade { from { opacity: 0; } }
+@keyframes qd-pop { from { opacity: 0; transform: scale(0.97) translateY(6px); } }
+
+/* ---- drawings in notes: the picture at its size, a double click (or the pencil) to draw on it ---- */
+.internal-embed.qd-drawing { position: relative; display: inline-block; max-width: 100%; border-radius: 9px; transition: background 120ms ease; }
+.internal-embed.qd-drawing:hover { background: var(--background-modifier-hover); }
+.internal-embed.qd-drawing img { border-radius: 0; cursor: default; }
+.qd-embed-draw {
+  position: absolute; top: 6px; right: 6px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  border-radius: 8px; background: var(--background-primary); color: var(--text-muted); border: 1px solid var(--background-modifier-border);
+  opacity: 0; transition: opacity 120ms ease; cursor: default; z-index: 2;
+}
+.qd-embed-draw svg { width: 15px; height: 15px; }
+.internal-embed.qd-drawing:hover .qd-embed-draw { opacity: 1; }
+.qd-embed-draw:hover { color: var(--text-normal); }
