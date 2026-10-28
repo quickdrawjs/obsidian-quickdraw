@@ -120,8 +120,24 @@
 .internal-embed.qd-drawing { position: relative; display: inline-block; max-width: 100%; border-radius: 9px; transition: background 120ms ease; }
 .internal-embed.qd-drawing:hover { background: var(--background-modifier-hover); }
 .internal-embed.qd-drawing img { border-radius: 0; cursor: default; }
-/* one way to resize a drawing: Obsidian's corner handle is hidden */
+/* one way to resize a drawing, the handle on its right edge: Obsidian's corner handle is hidden */
 .internal-embed.qd-drawing .image-resize-corner { display: none; }
+.qd-embed-size {
+  position: absolute; top: 0; bottom: 0; right: -7px; width: 14px; display: flex; align-items: center; justify-content: center;
+  cursor: ew-resize; z-index: 2; touch-action: none;
+}
+.qd-embed-size::after {
+  content: ''; width: 4px; height: min(44px, 40%); min-height: 18px; border-radius: 2px; background: var(--text-faint);
+  box-shadow: 0 0 0 2px var(--background-primary); opacity: 0; transition: opacity 120ms ease, background 120ms ease;
+}
+.internal-embed.qd-drawing:hover .qd-embed-size::after, .internal-embed.qd-drawing.is-sizing .qd-embed-size::after { opacity: 1; }
+.qd-embed-size:hover::after, .is-sizing .qd-embed-size::after { background: var(--interactive-accent); }
+.internal-embed.qd-drawing.is-sizing { background: var(--background-modifier-hover); }
+.internal-embed.qd-drawing.is-sizing img { transition: none; }
+body.qd-sizing, body.qd-sizing * { cursor: ew-resize !important; user-select: none; }
+/* the caret on a drawing's line would be as tall as the drawing (Obsidian's is the browser's own, so !important) */
+.cm-editor.qd-caret-off .cm-cursorLayer { visibility: hidden; }
+.cm-editor.qd-caret-off .cm-content { caret-color: transparent !important; }
 .qd-embed-draw {
   position: absolute; top: 6px; right: 6px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
   border-radius: 8px; background: var(--background-primary); color: var(--text-muted); border: 1px solid var(--background-modifier-border);

@@ -20,6 +20,7 @@ Sticky notes, highlighter, shapes, arrows, text and a laser pointer, in light an
 
 - **Insert drawing**: from the command palette, the slash commands, the ribbon, or the editor's right-click menu.
 - **Draw on a drawing again**: double-click it in the note, or use the pencil button that shows when you hover over it. There's also a command for the drawing on the cursor's line.
+- **Resize a drawing**: drag the bar on its right edge. Double-click the bar to go back to the size it was drawn at.
 - **Done** (⌘↩ / Ctrl ↩) closes the sheet. A new drawing you leave empty is never added. A drawing you clear is taken out of the note, and its files go to the trash.
 
 ## How drawings are kept

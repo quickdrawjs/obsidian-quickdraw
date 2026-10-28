@@ -6,32 +6,15 @@
 // `<id>.drawing-dark.png` and `<id>.drawing.json`, in the folder the settings name (the vault's attachment folder
 // unless they name another). The note embeds the picture, so any Markdown reader shows it; here the dark one shows in the dark
 // theme, at its size (it's drawn at twice), and a double click on it opens it to draw on.
-const { Plugin, PluginSettingTab, Setting, MarkdownView, TFile, Notice, Platform, FileSystemAdapter, normalizePath, setIcon, addIcon, editorLivePreviewField } = require('obsidian')
-const { EditorState, EditorSelection } = require('@codemirror/state')
+const { Plugin, PluginSettingTab, Setting, MarkdownView, TFile, Notice, Platform, FileSystemAdapter, normalizePath, setIcon, addIcon } = require('obsidian')
 // the browser build: it draws the code on a canvas, with no file system
 const QRCode = require('qrcode/lib/browser')
 const { createIpadBridge } = require('./ipad')
+const { caretOffDrawings, addSizeHandle } = require('./embed')
 
 const DRAWING = '.drawing.png'
 const DARK = '.drawing-dark.png'
 const SOURCE = '.drawing.json'
-
-/** a line with nothing on it but a drawing */
-const DRAWING_LINE = /^\s*(?:!\[\[[^\]]+\.drawing\.png[^\]]*\]\]|!\[[^\]]*\]\(<?[^)>]+\.drawing\.png>?\))\s*$/
-
-/** A caret put before a drawing alone on its line is as tall as the drawing. So the caret never stops there: a click
- *  puts it after the drawing, the left arrow goes on to the line before, and up and down stop after it. */
-const caretPastDrawings = EditorState.transactionFilter.of((tr) => {
-  if (!tr.selection || tr.docChanged) return tr
-  const main = tr.newSelection.main
-  if (!main.empty || tr.newSelection.ranges.length > 1) return tr
-  try { if (!tr.startState.field(editorLivePreviewField)) return tr } catch { return tr }
-  const line = tr.newDoc.lineAt(main.head)
-  if (main.head !== line.from || line.from === line.to || !DRAWING_LINE.test(line.text)) return tr
-  const was = tr.startState.selection.main.head
-  const back = !tr.isUserEvent('select.pointer') && was > main.head && was <= line.to && line.number > 1
-  return [tr, { selection: EditorSelection.cursor(back ? line.from - 1 : line.to), sequential: true }]
-})
 
 const isDark = () => document.body.classList.contains('theme-dark')
 const el = (tag, cls, text) => {
@@ -78,7 +61,7 @@ module.exports = class QuickdrawPlugin extends Plugin {
       },
     })
     this.sheet = null
-    this.registerEditorExtension(caretPastDrawings)
+    this.registerEditorExtension(caretOffDrawings)
 
     this.addCommand({
       id: 'insert-drawing',
@@ -225,9 +208,10 @@ module.exports = class QuickdrawPlugin extends Plugin {
     if (!img.dataset.qdSized) {
       img.dataset.qdSized = '1'
       // a drawing's picture is at twice its size
+      // a width in the link (`|300`) is the size it was given instead
       const size = () => {
-        if (img.getAttribute('width') || !img.naturalWidth) return
-        img.style.width = `${Math.max(24, img.naturalWidth / 2)}px`
+        if (img.getAttribute('width')) img.style.width = ''
+        else if (img.naturalWidth) img.style.width = `${Math.max(24, img.naturalWidth / 2)}px`
       }
       img.addEventListener('load', size)
       if (img.complete) size()
@@ -246,6 +230,7 @@ module.exports = class QuickdrawPlugin extends Plugin {
       })
       embed.appendChild(b)
     }
+    if (embed && embed.closest('.cm-editor')) addSizeHandle(embed)
   }
 
   /** a drawing written again: every picture of it shown anew */
