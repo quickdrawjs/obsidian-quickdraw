@@ -120,6 +120,8 @@
 .internal-embed.qd-drawing { position: relative; display: inline-block; max-width: 100%; border-radius: 9px; transition: background 120ms ease; }
 .internal-embed.qd-drawing:hover { background: var(--background-modifier-hover); }
 .internal-embed.qd-drawing img { border-radius: 0; cursor: default; }
+/* one way to resize a drawing: Obsidian's corner handle is hidden */
+.internal-embed.qd-drawing .image-resize-corner { display: none; }
 .qd-embed-draw {
   position: absolute; top: 6px; right: 6px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
   border-radius: 8px; background: var(--background-primary); color: var(--text-muted); border: 1px solid var(--background-modifier-border);

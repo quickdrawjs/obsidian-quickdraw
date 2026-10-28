@@ -47,7 +47,7 @@ await build({
   format: 'cjs',
   target: 'chrome120',
   outfile: path.join(out, 'main.js'),
-  external: ['obsidian', 'electron', 'bufferutil', 'utf-8-validate'],
+  external: ['obsidian', 'electron', '@codemirror/state', '@codemirror/view', 'bufferutil', 'utf-8-validate'],
   define: {
     BOARD_HTML: JSON.stringify(board),
     ENGINE_FILES: JSON.stringify(engineFiles()),

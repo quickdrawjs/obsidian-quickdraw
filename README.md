@@ -37,7 +37,7 @@ New drawings go in the folder set for attachments in **Settings → Files and li
 Quickdraw makes no network requests. When you click **Draw on iPad**, and only then, it starts a small web server on your local network so the iPad can open the drawing:
 
 - The server serves only the drawing page and the Quickdraw engine, both built into the plugin, and relays strokes between the iPad and your computer over a WebSocket. Nothing leaves your local network, and there are no accounts, analytics or cloud services.
-- Every address carries a random key that's only in the code on your screen. Requests without it are refused.
+- Every address carries a random key that's only in the code on your screen. Requests without it are refused. The key stays the same each time you share, so a page left open on the iPad picks up the next drawing you share. It works only while you're sharing.
 - The code holds your computer's local IP address. For typing it in instead, there's also a friendly name, `obsidian.local`, which the plugin answers for itself with multicast DNS (Bonjour), only for that one name and only while you're sharing. Multicast DNS never leaves your local network.
 - The plugin runs no programs and doesn't read your computer's name, your user account or your environment.
 - The server stops when you click **Stop Sharing** or close the drawing.

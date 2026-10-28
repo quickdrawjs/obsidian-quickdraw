@@ -155,24 +155,30 @@ let batchTimer
 
 /** A stroke arrives as many small diffs; they make one undo step, closed when the pen lifts. */
 function applyFromIpad(changes, open) {
-  if (open && !batching) {
-    store.beginBatch()
+  // The board's own batch, not just the flag: anything else that closed it mustn't leave the rest of the stroke as
+  // an undo step per diff.
+  if (open && (!batching || !store._batch)) {
+    if (!store._batch) store.beginBatch()
     batching = true
   }
   // The board's own edit, so it's undoable here; flagged, so it isn't sent back.
   applying = true
   try { store.applyDiff(unpackDiff(changes, store), 'user') } finally { applying = false }
-  clearTimeout(batchTimer)
   if (!open) endGesture()
-  // A lost "pen up" mustn't leave the stroke open.
-  else batchTimer = setTimeout(endGesture, 2000)
+  else holdGesture()
+}
+
+/** A lost "pen up" mustn't leave the stroke open. While the pen is down and still, the iPad says so each second. */
+function holdGesture() {
+  clearTimeout(batchTimer)
+  batchTimer = setTimeout(endGesture, 5000)
 }
 
 function endGesture() {
   clearTimeout(batchTimer)
   if (!batching) return
   batching = false
-  store.endBatch()
+  if (store._batch) store.endBatch()
 }
 
 function onIpad(m) {
@@ -192,6 +198,9 @@ function onIpad(m) {
       return
     case 'gestureEnd':
       return endGesture()
+    case 'held':
+      if (batching) holdGesture()
+      return
     case 'theme':
       return setScheme(m.theme === 'dark' ? 'dark' : 'light')
     case 'grid':

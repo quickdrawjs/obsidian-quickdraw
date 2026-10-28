@@ -5,8 +5,9 @@
 // The code holds the computer's address, which always works. For typing, there's a name too, `obsidian.local`, which
 // the plugin answers for itself with multicast DNS while it shares (src/mdns.js); on port 80 when that's free.
 //
-// Every address carries the session's random key, so only someone who scanned the code can load the page or join.
-// The server listens only while a drawing is being shared, and stops with it.
+// Every address carries a random key, kept from one sharing to the next, so only someone who scanned the code can load
+// the page or join, and a page left open on the iPad reconnects when the next drawing is shared. The server listens
+// only while a drawing is being shared, and stops with it.
 
 const http = require('node:http')
 const { lanAddress, claimName } = require('./mdns')
@@ -24,8 +25,8 @@ const randomKey = (n) => Array.from({ length: n }, () => LETTERS[Math.floor(Math
 const TYPES = { js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', woff2: 'font/woff2', html: 'text/html; charset=utf-8', txt: 'text/plain; charset=utf-8' }
 
 /** `files`: the iPad's page and the engine, by path ('ipad.html', 'qd/index.js', …), as Buffers; `hostId`: this
- *  computer's own short id, made once and kept, as get/set */
-function createIpadBridge({ files, hostId }) {
+ *  computer's own short id, and `savedKey`: the key in the iPad's link, each made once and kept, as get/set */
+function createIpadBridge({ files, hostId, savedKey }) {
   let server = null
   let wss = null
   let port = null
@@ -46,6 +47,15 @@ function createIpadBridge({ files, hostId }) {
     const id = randomKey(4)
     hostId.set(id)
     return id
+  }
+
+  /** the key in the iPad's link, made once and kept, so the link stays the same from one drawing to the next */
+  function linkKey() {
+    const kept = savedKey.get()
+    if (kept && kept.length === 10) return kept
+    const k = randomKey(10)
+    savedKey.set(k)
+    return k
   }
 
   function release() {
@@ -144,7 +154,7 @@ function createIpadBridge({ files, hostId }) {
     if (!ip) throw new Error("This computer isn't on a network. Join the same Wi-Fi as your iPad and try again.")
     if (!hasEngine()) throw new Error('The drawing engine for the iPad is missing from this build.')
     if (!server) await listen()
-    key = key || randomKey(10)
+    key = linkKey()
     onMessage = messages
     onPresence = presence
     presence(devices())

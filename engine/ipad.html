@@ -32,7 +32,7 @@
 <div id="app"></div>
 <div id="pen" class="chip" style="display:none"><button type="button">Pen only</button></div>
 <div id="status" class="chip"><i></i><span id="stext">Connecting…</span></div>
-<div id="ended"><div>The drawing is saved in your note.<br>Scan the code on the Mac to draw again.</div></div>
+<div id="ended"><div id="endtext"></div></div>
 <script type="module">
 // Drawing on a note from an iPad. This page runs the same Quickdraw engine as the Mac, on a mirror of the drawing
 // open there: its strokes go to the Mac as diffs, flagged while the pen is still down, and everything done on the
@@ -59,20 +59,26 @@ function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + location.pathname)
   ws.onopen = () => { retry = 0; send({ type: 'hello' }); status('Connected to Obsidian', true) }
   ws.onclose = (e) => {
-    if (e.code === 4000 || e.code === 4001) {
-      editor.setReadonly(true)
-      document.body.classList.add('ended')
-      status('Drawing closed on the Mac')
-      return
-    }
-    status('Reconnecting…')
-    setTimeout(connect, Math.min(4000, 400 * 2 ** retry++))
+    // An old link: only a new code opens the drawing.
+    if (e.code === 4001) return end('This link no longer works.<br>Scan the code on the Mac again.')
+    // Closed on the Mac. This page waits, and opens the drawing again the moment Draw on iPad is clicked there.
+    if (e.code === 4000) end('The drawing is saved in your note.<br>To keep drawing here, click Draw on iPad on the Mac.')
+    else if (!ended) status('Reconnecting…')
+    setTimeout(connect, ended ? 2000 : Math.min(4000, 400 * 2 ** retry++))
   }
   ws.onmessage = (ev) => {
     let m
     try { m = JSON.parse(ev.data) } catch { return }
     try { onMessage(m) } catch (e) { console.error(e) }
   }
+}
+let ended = false
+function end(text) {
+  ended = true
+  editor.setReadonly(true)
+  $('endtext').innerHTML = text
+  document.body.classList.add('ended')
+  status('Drawing closed on the Mac')
 }
 
 // ---- one undo stack: the Mac's ---------------------------------------------------
@@ -95,6 +101,8 @@ store.listenHistory(() => {
   out.flush()
   if (open) { open = false; send({ type: 'gestureEnd' }) }
 })
+// A pen held still mid-stroke sends nothing; this tells the Mac the stroke is still going.
+setInterval(() => { if (open && store._batch) send({ type: 'held' }) }, 1000)
 
 // ---- edits in ------------------------------------------------------------------
 // Theme and grid are the Mac's, and the menu here switches them for both.
@@ -110,6 +118,13 @@ editor.on('grid', () => send({ type: 'grid', grid: editor.grid }))
 let first = true
 function onMessage(m) {
   if (m.type === 'init') {
+    // Back after the drawing closed on the Mac: it may be another drawing now, so it's shown whole.
+    if (ended) {
+      ended = false
+      first = true
+      editor.setReadonly(false)
+      document.body.classList.remove('ended')
+    }
     store.loadSnapshot(m.snapshot)
     if (m.theme) setScheme(m.theme)
     if (m.grid) editor.setGrid(m.grid)

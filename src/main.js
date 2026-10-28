@@ -6,7 +6,8 @@
 // `<id>.drawing-dark.png` and `<id>.drawing.json`, in the folder the settings name (the vault's attachment folder
 // unless they name another). The note embeds the picture, so any Markdown reader shows it; here the dark one shows in the dark
 // theme, at its size (it's drawn at twice), and a double click on it opens it to draw on.
-const { Plugin, PluginSettingTab, Setting, MarkdownView, TFile, Notice, Platform, FileSystemAdapter, normalizePath, setIcon, addIcon } = require('obsidian')
+const { Plugin, PluginSettingTab, Setting, MarkdownView, TFile, Notice, Platform, FileSystemAdapter, normalizePath, setIcon, addIcon, editorLivePreviewField } = require('obsidian')
+const { EditorState, EditorSelection } = require('@codemirror/state')
 // the browser build: it draws the code on a canvas, with no file system
 const QRCode = require('qrcode/lib/browser')
 const { createIpadBridge } = require('./ipad')
@@ -14,6 +15,23 @@ const { createIpadBridge } = require('./ipad')
 const DRAWING = '.drawing.png'
 const DARK = '.drawing-dark.png'
 const SOURCE = '.drawing.json'
+
+/** a line with nothing on it but a drawing */
+const DRAWING_LINE = /^\s*(?:!\[\[[^\]]+\.drawing\.png[^\]]*\]\]|!\[[^\]]*\]\(<?[^)>]+\.drawing\.png>?\))\s*$/
+
+/** A caret put before a drawing alone on its line is as tall as the drawing. So the caret never stops there: a click
+ *  puts it after the drawing, the left arrow goes on to the line before, and up and down stop after it. */
+const caretPastDrawings = EditorState.transactionFilter.of((tr) => {
+  if (!tr.selection || tr.docChanged) return tr
+  const main = tr.newSelection.main
+  if (!main.empty || tr.newSelection.ranges.length > 1) return tr
+  try { if (!tr.startState.field(editorLivePreviewField)) return tr } catch { return tr }
+  const line = tr.newDoc.lineAt(main.head)
+  if (main.head !== line.from || line.from === line.to || !DRAWING_LINE.test(line.text)) return tr
+  const was = tr.startState.selection.main.head
+  const back = !tr.isUserEvent('select.pointer') && was > main.head && was <= line.to && line.number > 1
+  return [tr, { selection: EditorSelection.cursor(back ? line.from - 1 : line.to), sequential: true }]
+})
 
 const isDark = () => document.body.classList.contains('theme-dark')
 const el = (tag, cls, text) => {
@@ -41,7 +59,7 @@ const MARK = '<g transform="translate(-12.1 -7.8) scale(3.6)">' +
 module.exports = class QuickdrawPlugin extends Plugin {
   async onload() {
     addIcon('quickdraw', MARK)
-    this.settings = Object.assign({ folder: '', hostId: '' }, await this.loadData())
+    this.settings = Object.assign({ folder: '', hostId: '', ipadKey: '' }, await this.loadData())
     this.addSettingTab(new QuickdrawSettings(this))
     const adapter = this.app.vault.adapter
     this.basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : ''
@@ -54,8 +72,13 @@ module.exports = class QuickdrawPlugin extends Plugin {
         get: () => this.settings.hostId,
         set: (id) => { this.settings.hostId = id; this.saveData(this.settings) },
       },
+      savedKey: {
+        get: () => this.settings.ipadKey,
+        set: (k) => { this.settings.ipadKey = k; this.saveData(this.settings) },
+      },
     })
     this.sheet = null
+    this.registerEditorExtension(caretPastDrawings)
 
     this.addCommand({
       id: 'insert-drawing',
